@@ -15,26 +15,24 @@ public:
 
 public slots:
     void connectToServer();
-    void login(QString username);
-    void sendMessage(QString text, QString sender, QString receiver);
+    void sendMessage(QString message);
     void disconnectFromServer();
 
 private slots:
     void onTextMessageReceived(QString message);
+    void onError(QAbstractSocket::SocketError socketError);
 
 signals:
     void connected();
-    void loggedIn(QString username);
-    void loginError(QString reason);
+    void loginMessage(const QJsonObject &json);
+    void textMessage(const QJsonObject &json);
+    void textMessageFail(const QJsonObject &json);
+    void usersListMessage(const QJsonObject &json);
     void disconnected();
-    void messageReceived(QString sender, QString text);
     void error(QAbstractSocket::SocketError socketError);
-    void userJoined(QString username);
-    void userLeft(QString username);
 
 private:
     QWebSocket *webSocket;
-    bool isloggedIn;
     void jsonReceived(const QJsonObject &doc);
 };
 

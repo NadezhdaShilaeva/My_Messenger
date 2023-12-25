@@ -3,9 +3,12 @@
 
 #include <QMainWindow>
 #include <QStandardItemModel>
+#include <QSortFilterProxyModel>
 #include <map>
-#include "chatclient.h"
-#include "loginform.h"
+
+#include "ChatClient.h"
+#include "LoginService.h"
+#include "ChatService.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -22,19 +25,30 @@ public:
 private:
     Ui::MainWindow *ui;
     ChatClient *chatClient;
-    LoginForm *loginForm;
-    QString username;
+    LoginService *loginService;
+    ChatService *chatService;
+    QStandardItemModel* usersModel;
+    QSortFilterProxyModel *proxyModel;
     std::map<QString, QStandardItemModel*> chatModels;
 
 private slots:
     void login();
-    void onLoggedIn(QString username);
+    void logout();
+    void onLoggedIn();
+    void onLoginFailed(QString reason);
+
+    void onUsersListReceived(const QJsonArray& usersArray);
     void onMessageReceived(QString sender, QString text);
+    void onMessageFailed(QString receiver, QString text, QString reason);
+    void changeUser(const QModelIndex &userIndex);
     void sendMessage();
-    void changeUser(QString currentUser);
+
+    void changePageToUsers();
+
     void onDisconnectedFromServer();
-    void onUserJoined(QString username);
-    void onUserLeft(QString username);
     void onError(QAbstractSocket::SocketError socketError);
+
+private:
+    void printMessage(QStandardItemModel* currentModel, QString text, bool self);
 };
 #endif // MAINWINDOW_H

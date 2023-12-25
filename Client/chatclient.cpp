@@ -1,20 +1,22 @@
-#include "chatclient.h"
+#include "ChatClient.h"
+
 #include <QObject>
+#include <QNetworkRequest>
 
 ChatClient::ChatClient(QObject *parent)
     : QObject(parent)
-    , isloggedIn(false)
+    , webSocket(new QWebSocket())
 {
     connect(webSocket, &QWebSocket::connected, this, &ChatClient::connected);
     connect(webSocket, &QWebSocket::disconnected, this, &ChatClient::disconnected);
     connect(webSocket, &QWebSocket::textMessageReceived, this, &ChatClient::onTextMessageReceived);
-    //connect(webSocket, &QWebSocket::error, this, &ChatClient::error);
-    connect(webSocket, &QWebSocket::disconnected, this, [this]()->void{isloggedIn = false;});
+    connect(webSocket, SIGNAL(error(QAbstractSocket::SocketError)), this, SLOT(onError(QAbstractSocket::SocketError)));
 }
 
 void ChatClient::connectToServer()
 {
     QUrl url("ws://127.0.0.1:8001");
+
     webSocket->open(url);
 }
 
@@ -23,27 +25,9 @@ void ChatClient::disconnectFromServer()
     webSocket->close();
 }
 
-void ChatClient::login(QString username)
+void ChatClient::sendMessage(QString message)
 {
-    QJsonObject message;
-    message["type"] = QStringLiteral("login");
-    message["username"] = username;
-
-    webSocket->sendTextMessage(QJsonDocument(message).toJson());
-}
-
-void ChatClient::sendMessage(QString text, QString sender, QString receiver)
-{
-    if (text.isEmpty() or sender.isEmpty() or receiver.isEmpty())
-        return;
-
-    QJsonObject message;
-    message["type"] = QStringLiteral("message");
-    message["text"] = text;
-    message["sender"] = sender;
-    message["receiver"] = receiver;
-
-    webSocket->sendTextMessage(QJsonDocument(message).toJson(QJsonDocument::Compact));
+    webSocket->sendTextMessage(message);
 }
 
 void ChatClient::onTextMessageReceived(QString message)
@@ -57,53 +41,25 @@ void ChatClient::jsonReceived(const QJsonObject &json)
     if (type.isNull() || !type.isString())
         return;
 
-    if (type.toString().compare("login", Qt::CaseInsensitive) == 0)
+    if (type.toString().compare("login") == 0)
     {
-        if (isloggedIn)
-            return;
-
-        QJsonValue result = json.value("success");
-        if (result.isNull() || !result.isBool())
-            return;
-
-        QString username = json.value("username").toString();
-        bool loginSuccess = result.toBool();
-        if (loginSuccess) {
-            isloggedIn = true;
-            emit loggedIn(username);
-            return;
-        }
-
-        QJsonValue reason = json.value("reason");
-        emit loginError(reason.toString());
+        emit loginMessage(json);
     }
-    else if (type.toString().compare("message", Qt::CaseInsensitive) == 0)
+    else if (type.toString().compare("message") == 0)
     {
-        QJsonValue text = json.value("text");
-        QJsonValue sender = json.value("sender");
-        if (text.isNull() || !text.isString())
-            return;
-
-        if (sender.isNull() || !sender.isString())
-            return;
-
-        emit messageReceived(sender.toString(), text.toString());
+        emit textMessage(json);
     }
-    else if (type.toString().compare("newuser", Qt::CaseInsensitive) == 0)
+    else if (type.toString().compare("messageFail") == 0)
     {
-        QJsonValue username = json.value(QLatin1String("username"));
-        if (username.isNull() || !username.isString())
-            return;
-
-        emit userJoined(username.toString());
+        emit textMessageFail(json);
     }
-    else if (type.toString().compare(QLatin1String("userdisconnected"), Qt::CaseInsensitive) == 0)
+    else if (type.toString().compare("users") == 0)
     {
-        QJsonValue username = json.value(QLatin1String("username"));
-        if (username.isNull() || !username.isString())
-            return;
-
-        emit userLeft(username.toString());
+        emit usersListMessage(json);
     }
 }
 
+void ChatClient::onError(QAbstractSocket::SocketError socketError)
+{
+    emit error(socketError);
+}

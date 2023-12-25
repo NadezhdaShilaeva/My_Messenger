@@ -1,27 +1,42 @@
-#include "mainwindow.h"
-#include "ui_mainwindow.h"
-#include "loginform.h"
+#include "MainWindow.h"
+#include "ui_MainWindow.h"
+#include "LoginService.h"
+
 #include <QInputDialog>
 #include <QMessageBox>
 #include <QTime>
+#include <iostream>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
-    , chatClient(new ChatClient())
-    , loginForm(new LoginForm(this, chatClient))
+    , chatClient(new ChatClient(this))
+    , loginService(new LoginService(chatClient, this))
+    , chatService(new ChatService(chatClient, this))
+    , usersModel(new QStandardItemModel(this))
+    , proxyModel(new QSortFilterProxyModel(this))
 {
     ui->setupUi(this);
+    ui->stackedWidget->setCurrentIndex(0);
 
-    connect(chatClient, &ChatClient::loggedIn, this, &MainWindow::onLoggedIn);
-    connect(chatClient, &ChatClient::messageReceived, this, &MainWindow::onMessageReceived);
-    connect(chatClient, &ChatClient::disconnected, this, &MainWindow::onDisconnectedFromServer);
+    proxyModel->setSourceModel(usersModel);
+    proxyModel->setFilterCaseSensitivity(Qt::CaseInsensitive);
+
+    connect(ui->findUserEdit, SIGNAL(textChanged(QString)), proxyModel, SLOT(setFilterRegExp(QString)));
+    ui->usersListView->setModel(proxyModel);
+
+    connect(loginService, &LoginService::loggedIn, this, &MainWindow::onLoggedIn);
+    connect(loginService, &LoginService::loginFailed, this, &MainWindow::onLoginFailed);
+    connect(chatService, &ChatService::usersListReceived, this, &MainWindow::onUsersListReceived);
+    connect(chatService, &ChatService::messageReceived, this, &MainWindow::onMessageReceived);
+    connect(chatService, &ChatService::messageFailed, this, &MainWindow::onMessageFailed);
     connect(chatClient, &ChatClient::error, this, &MainWindow::onError);
-    connect(chatClient, &ChatClient::userJoined, this, &MainWindow::onUserJoined);
-    connect(chatClient, &ChatClient::userLeft, this, &MainWindow::onUserLeft);
 
     connect(ui->loginButton, &QPushButton::clicked, this, &MainWindow::login);
-    //connect(ui->usersBox, &QComboBox::currentIndexChanged, this, &MainWindow::changeUser);
+    connect(ui->logoutButton, &QPushButton::clicked, this, &MainWindow::logout);
+    connect(ui->logoutButton2, &QPushButton::clicked, this, &MainWindow::logout);
+    connect(ui->usersListView, &QListView::clicked, this, &MainWindow::changeUser);
+    connect(ui->returnButton, &QPushButton::clicked, this, &MainWindow::changePageToUsers);
     connect(ui->sendButton, &QPushButton::clicked, this, &MainWindow::sendMessage);
     connect(ui->messageEdit, &QLineEdit::returnPressed, this, &MainWindow::sendMessage);
 }
@@ -33,77 +48,190 @@ MainWindow::~MainWindow()
 
 void MainWindow::login()
 {
-    ui->loginButton->setEnabled(false);
+    QString username = ui->usernameEdit->text();
 
-    loginForm->show();
+    ui->loginButton->setEnabled(false);
+    loginService->loginUser(username);
 }
 
-void MainWindow::onLoggedIn(QString userName)
+void MainWindow::logout()
 {
-    ui->sendButton->setEnabled(true);
-    ui->messageEdit->setEnabled(true);
-    ui->chatView->setEnabled(true);
+    disconnect(chatClient, &ChatClient::disconnected, this, &MainWindow::onDisconnectedFromServer);
+    loginService->logoutUser();
 
-    this->show();
+    chatModels.clear();
+    ui->usernameEdit->clear();
+    ui->loginButton->setEnabled(true);
+    this->setWindowTitle("My messenger");
+    ui->stackedWidget->setCurrentIndex(0);
+}
 
-    username = userName;
+void MainWindow::onLoggedIn()
+{
+    connect(chatClient, &ChatClient::disconnected, this, &MainWindow::onDisconnectedFromServer);
+
+    ui->usernameEdit->clear();
+    ui->loginButton->setEnabled(true);
+    this->setWindowTitle("My messenger - " + loginService->getUsername());
+    changePageToUsers();
+}
+
+void MainWindow::onLoginFailed(QString reason)
+{
+    ui->usernameEdit->clear();
+    ui->loginButton->setEnabled(true);
+    QMessageBox::warning(this, "Failed authorization!", reason + " Please, try again.");
+}
+
+void MainWindow::onUsersListReceived(const QJsonArray& usersArray)
+{
+    usersModel->clear();
+    usersModel->insertColumn(0);
+
+    int newRow = 0;
+    usersModel->insertRow(newRow);
+    usersModel->setData(usersModel->index(newRow, 0), "Favourites");
+    usersModel->setData(usersModel->index(newRow, 0), int(Qt::AlignLeft | Qt::AlignVCenter), Qt::TextAlignmentRole);
+    QFont font;
+    font.setBold(700);
+    usersModel->setData(usersModel->index(newRow, 0), font, Qt::FontRole);
+    newRow++;
+
+    for (auto& user: chatModels)
+    {
+        if (user.first == "Favourites")
+            continue;
+
+        usersModel->insertRow(newRow);
+
+        usersModel->setData(usersModel->index(newRow, 0), user.first);
+        usersModel->setData(usersModel->index(newRow, 0), int(Qt::AlignLeft | Qt::AlignVCenter), Qt::TextAlignmentRole);
+        newRow++;
+    }
+    for (int i = 0; i < usersArray.size(); ++i)
+    {
+        QString newUser = usersArray.at(i).toString();
+        if (chatModels.count(newUser) or newUser == loginService->getUsername())
+            continue;
+
+        usersModel->insertRow(newRow);
+
+        usersModel->setData(usersModel->index(newRow, 0), newUser);
+        usersModel->setData(usersModel->index(newRow, 0), int(Qt::AlignLeft | Qt::AlignVCenter), Qt::TextAlignmentRole);
+        newRow++;
+    }
 }
 
 void MainWindow::sendMessage()
 {
-    QString receiver = ui->usersBox->currentText();
-    chatClient->sendMessage(ui->messageEdit->text(), username, receiver);
+    QString receiver = ui->usernameLabel->text();
+    QString text = ui->messageEdit->text();
 
-    QStandardItemModel *currentModel = chatModels[receiver];
-    if (currentModel == nullptr)
+    if (ui->usernameLabel->text() != "Favourites")
+    {
+        chatService->sendMessage(text, loginService->getUsername(), receiver);
+    }
+
+    QStandardItemModel *currentModel;
+    if (chatModels.count(receiver))
+    {
+        currentModel = chatModels[receiver];
+    }
+    else
     {
         currentModel = chatModels[receiver] = new QStandardItemModel();
         currentModel->insertColumn(0);
     }
 
-    int newRow = currentModel->rowCount();
-    currentModel->insertRows(newRow, 2);
-    currentModel->setData(currentModel->index(newRow, 0), ui->messageEdit->text());
-    currentModel->setData(currentModel->index(newRow, 0), int(Qt::AlignRight | Qt::AlignVCenter), Qt::TextAlignmentRole);
-
-    newRow++;
-    QFont font;
-    font.setPixelSize(8);
-    currentModel->setData(currentModel->index(newRow, 0), QTime::currentTime().toString("hh:mm"));
-    currentModel->setData(currentModel->index(newRow, 0), int(Qt::AlignRight | Qt::AlignVCenter), Qt::TextAlignmentRole);
-    currentModel->setData(currentModel->index(newRow, 0), font, Qt::FontRole);
-    //currentModel->setData(currentModel->index(newRow, 0), QBrush(Qt::white), Qt::ForegroundRole);
+    printMessage(currentModel, text, true);
 
     ui->messageEdit->clear();
+    ui->chatView->setModel(currentModel);
     ui->chatView->scrollToBottom();
 }
 
 void MainWindow::onMessageReceived(QString sender, QString text)
 {
-    QStandardItemModel *currentModel = chatModels[sender];
-    if (currentModel == nullptr)
+    QStandardItemModel *currentModel;
+    if (chatModels.count(sender))
+    {
+        currentModel = chatModels[sender];
+    }
+    else
     {
         currentModel = chatModels[sender] = new QStandardItemModel();
         currentModel->insertColumn(0);
     }
 
+    printMessage(currentModel, text, false);
+
+    if (ui->usernameLabel->text() == sender)
+    {
+        ui->chatView->setModel(currentModel);
+        ui->chatView->scrollToBottom();
+    }
+}
+
+void MainWindow::onMessageFailed(QString receiver, QString text, QString reason)
+{
+    QStandardItemModel *currentModel = chatModels[receiver];
+    QModelIndex failedIdx = currentModel->findItems(text).constLast()->index();
+
+    currentModel->setData(currentModel->index(failedIdx.row() + 1, 0), reason);
+    currentModel->setData(currentModel->index(failedIdx.row() + 1, 0), QBrush(Qt::red), Qt::ForegroundRole);
+
+    if (ui->usernameLabel->text() == receiver)
+    {
+        ui->chatView->setModel(currentModel);
+        ui->chatView->scrollToBottom();
+    }
+}
+
+void MainWindow::printMessage(QStandardItemModel* currentModel, QString text, bool self)
+{
+    int alignment;
+    if (self)
+    {
+        alignment = int(Qt::AlignRight | Qt::AlignVCenter);
+    }
+    else
+    {
+        alignment = int(Qt::AlignLeft | Qt::AlignVCenter);
+    }
+
     int newRow = currentModel->rowCount();
     currentModel->insertRows(newRow, 2);
+    QFont font;
+    font.setFamily("Calibri");
+    font.setPixelSize(18);
     currentModel->setData(currentModel->index(newRow, 0), text);
-    currentModel->setData(currentModel->index(newRow, 0), int(Qt::AlignLeft | Qt::AlignVCenter), Qt::TextAlignmentRole);
+    currentModel->setData(currentModel->index(newRow, 0), alignment, Qt::TextAlignmentRole);
+    currentModel->setData(currentModel->index(newRow, 0), font, Qt::FontRole);
 
     newRow++;
-    QFont font;
-    font.setPixelSize(8);
+    font.setPixelSize(12);
     currentModel->setData(currentModel->index(newRow, 0), QTime::currentTime().toString("hh:mm"));
-    currentModel->setData(currentModel->index(newRow, 0), int(Qt::AlignLeft | Qt::AlignVCenter), Qt::TextAlignmentRole);
+    currentModel->setData(currentModel->index(newRow, 0), alignment, Qt::TextAlignmentRole);
     currentModel->setData(currentModel->index(newRow, 0), font, Qt::FontRole);
 }
 
-void MainWindow::changeUser(QString currentUser)
+void MainWindow::changePageToUsers()
 {
-    QStandardItemModel *currentModel = chatModels[currentUser];
-    if (currentModel == nullptr)
+    chatService->sendGetUsersRequest();
+    ui->stackedWidget->setCurrentIndex(1);
+}
+
+void MainWindow::changeUser(const QModelIndex& userIndex)
+{
+    QString currentUser = usersModel->itemFromIndex(proxyModel->mapToSource(userIndex))->text();
+    ui->usernameLabel->setText(currentUser);
+
+    QStandardItemModel *currentModel;
+    if (chatModels.count(currentUser))
+    {
+        currentModel = chatModels[currentUser];
+    }
+    else
     {
         currentModel = chatModels[currentUser] = new QStandardItemModel();
         currentModel->insertColumn(0);
@@ -111,33 +239,13 @@ void MainWindow::changeUser(QString currentUser)
 
     ui->chatView->setModel(currentModel);
     ui->chatView->scrollToBottom();
+    ui->stackedWidget->setCurrentIndex(2);
 }
 
 void MainWindow::onDisconnectedFromServer()
 {
-    ui->sendButton->setEnabled(false);
-    ui->messageEdit->setEnabled(false);
-    ui->chatView->setEnabled(false);
-    ui->loginButton->setEnabled(true);
-
-    this->show();
-    username = nullptr;
-
-    QMessageBox::warning(this, "Disconnected", "The host terminated the connection");
-}
-
-
-void MainWindow::onUserJoined(QString username)
-{
-    ui->usersBox->addItem(username);
-}
-
-void MainWindow::onUserLeft(QString username)
-{
-    if (ui->usersBox->currentText() == username)
-    {
-        QMessageBox::warning(this, "Warning", "The user " + username + " left the chat.");
-    }
+    logout();
+    QMessageBox::warning(this, "Disconnected", "The host terminated the connection.");
 }
 
 void MainWindow::onError(QAbstractSocket::SocketError socketError)
@@ -194,12 +302,6 @@ void MainWindow::onError(QAbstractSocket::SocketError socketError)
         Q_UNREACHABLE();
     }
 
-    ui->loginButton->setEnabled(true);
-    ui->sendButton->setEnabled(false);
-    ui->messageEdit->setEnabled(false);
-    ui->chatView->setEnabled(false);
-    this->show();
-
-    username = nullptr;
+    logout();
 }
 
