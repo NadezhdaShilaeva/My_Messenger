@@ -10,9 +10,8 @@
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
-    , chatClient(new ChatClient(this))
-    , loginService(new LoginService(chatClient, this))
-    , chatService(new ChatService(chatClient, this))
+    , loginService(new LoginService(this))
+    , chatService(new ChatService(this))
     , usersModel(new QStandardItemModel(this))
     , proxyModel(new QSortFilterProxyModel(this))
 {
@@ -25,12 +24,13 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->findUserEdit, SIGNAL(textChanged(QString)), proxyModel, SLOT(setFilterRegExp(QString)));
     ui->usersListView->setModel(proxyModel);
 
+    connect(loginService, &LoginService::disconnected, this, &MainWindow::onDisconnectedFromServer);
+    connect(loginService, &LoginService::error, this, &MainWindow::onError);
     connect(loginService, &LoginService::loggedIn, this, &MainWindow::onLoggedIn);
     connect(loginService, &LoginService::loginFailed, this, &MainWindow::onLoginFailed);
     connect(chatService, &ChatService::usersListReceived, this, &MainWindow::onUsersListReceived);
     connect(chatService, &ChatService::messageReceived, this, &MainWindow::onMessageReceived);
     connect(chatService, &ChatService::messageFailed, this, &MainWindow::onMessageFailed);
-    connect(chatClient, &ChatClient::error, this, &MainWindow::onError);
 
     connect(ui->loginButton, &QPushButton::clicked, this, &MainWindow::login);
     connect(ui->logoutButton, &QPushButton::clicked, this, &MainWindow::logout);
@@ -51,12 +51,11 @@ void MainWindow::login()
     QString username = ui->usernameEdit->text();
 
     ui->loginButton->setEnabled(false);
-    loginService->loginUser(username);
+    loginService->loginUser(username, chatService);
 }
 
 void MainWindow::logout()
 {
-    disconnect(chatClient, &ChatClient::disconnected, this, &MainWindow::onDisconnectedFromServer);
     loginService->logoutUser();
 
     chatModels.clear();
@@ -68,8 +67,6 @@ void MainWindow::logout()
 
 void MainWindow::onLoggedIn()
 {
-    connect(chatClient, &ChatClient::disconnected, this, &MainWindow::onDisconnectedFromServer);
-
     ui->usernameEdit->clear();
     ui->loginButton->setEnabled(true);
     this->setWindowTitle("My messenger - " + loginService->getUsername());
@@ -129,7 +126,7 @@ void MainWindow::sendMessage()
 
     if (ui->usernameLabel->text() != "Favourites")
     {
-        chatService->sendMessage(text, loginService->getUsername(), receiver);
+        chatService->sendTextMessage(text, loginService->getUsername(), receiver);
     }
 
     QStandardItemModel *currentModel;

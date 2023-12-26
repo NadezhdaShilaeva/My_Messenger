@@ -5,24 +5,25 @@
 
 ChatClient::ChatClient(QObject *parent)
     : QObject(parent)
-    , webSocket(new QWebSocket())
+{}
+
+void ChatClient::connectToServer()
 {
+    webSocket = new QWebSocket();
+
     connect(webSocket, &QWebSocket::connected, this, &ChatClient::connected);
     connect(webSocket, &QWebSocket::disconnected, this, &ChatClient::disconnected);
     connect(webSocket, &QWebSocket::textMessageReceived, this, &ChatClient::onTextMessageReceived);
     connect(webSocket, SIGNAL(error(QAbstractSocket::SocketError)), this, SLOT(onError(QAbstractSocket::SocketError)));
-}
 
-void ChatClient::connectToServer()
-{
     QUrl url("ws://127.0.0.1:8001");
-
     webSocket->open(url);
 }
 
 void ChatClient::disconnectFromServer()
 {
     webSocket->close();
+    webSocket->deleteLater();
 }
 
 void ChatClient::sendMessage(QString message)

@@ -24,7 +24,6 @@ public:
 
 private:
     Ui::MainWindow *ui;
-    ChatClient *chatClient;
     LoginService *loginService;
     ChatService *chatService;
     QStandardItemModel* usersModel;

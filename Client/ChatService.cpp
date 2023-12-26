@@ -1,16 +1,10 @@
 #include "ChatService.h"
 
 #include <QJsonArray>
-#include <iostream>
 
-ChatService::ChatService(ChatClient *chatClient, QObject *parent) :
+ChatService::ChatService(QObject *parent) :
     QObject(parent)
-    , chatClient(chatClient)
-{
-    connect(chatClient, &ChatClient::textMessage, this, &ChatService::processTextMessage);
-    connect(chatClient, &ChatClient::textMessageFail, this, &ChatService::processTextMessageFail);
-    connect(chatClient, &ChatClient::usersListMessage, this, &ChatService::processUsersListMessage);
-}
+{}
 
 void ChatService::processTextMessage(const QJsonObject &json)
 {
@@ -55,10 +49,11 @@ void ChatService::sendGetUsersRequest()
     QJsonObject message;
     message["type"] = QStringLiteral("users");
 
-    chatClient->sendMessage(QJsonDocument(message).toJson());
+    emit sendMessage(QJsonDocument(message).toJson());
+    //chatClient->sendMessage(QJsonDocument(message).toJson());
 }
 
-void ChatService::sendMessage(QString text, QString sender, QString receiver)
+void ChatService::sendTextMessage(QString text, QString sender, QString receiver)
 {
     if (text.isEmpty() or sender.isEmpty() or receiver.isEmpty())
         return;
@@ -69,5 +64,6 @@ void ChatService::sendMessage(QString text, QString sender, QString receiver)
     message["sender"] = sender;
     message["receiver"] = receiver;
 
-    chatClient->sendMessage(QJsonDocument(message).toJson());
+    emit sendMessage(QJsonDocument(message).toJson());
+    //chatClient->sendMessage(QJsonDocument(message).toJson());
 }

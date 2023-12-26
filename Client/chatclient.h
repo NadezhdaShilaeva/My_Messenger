@@ -5,6 +5,7 @@
 #include <QtWebSockets/QtWebSockets>
 #include <QAbstractSocket>
 #include <QObject>
+#include <QThread>
 
 class ChatClient : public QObject
 {
@@ -32,7 +33,7 @@ signals:
     void error(QAbstractSocket::SocketError socketError);
 
 private:
-    QWebSocket *webSocket;
+    QWebSocket *webSocket = nullptr;
     void jsonReceived(const QJsonObject &doc);
 };
 

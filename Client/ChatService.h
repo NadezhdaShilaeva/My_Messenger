@@ -10,24 +10,22 @@ class ChatService : public QObject
     Q_OBJECT
 
 public:
-    explicit ChatService(ChatClient *chatClient, QObject *parent = nullptr);
-
-private:
-    ChatClient *chatClient;
+    explicit ChatService(QObject *parent = nullptr);
 
 signals:
-    void loggedIn();
-    void loginFailed(QString reason);
+    void sendMessage(QString message);
     void messageReceived(QString sender, QString text);
     void messageFailed(QString receiver, QString text, QString reason);
     void usersListReceived(const QJsonArray& usersArray);
 
-public:
+public slots:
     void processTextMessage(const QJsonObject &json);
     void processTextMessageFail(const QJsonObject &json);
     void processUsersListMessage(const QJsonObject &json);
+
+public:
     void sendGetUsersRequest();
-    void sendMessage(QString text, QString sender, QString receiver);
+    void sendTextMessage(QString text, QString sender, QString receiver);
 };
 
 #endif // CHATSERVICE_H
