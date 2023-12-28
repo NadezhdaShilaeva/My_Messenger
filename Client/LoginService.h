@@ -28,7 +28,6 @@ signals:
 public slots:
     void login();
     void processMessage(const QJsonObject &json);
-    void onDisconnected();
 
 public:
     void loginUser(QString username, ChatService *chatService);

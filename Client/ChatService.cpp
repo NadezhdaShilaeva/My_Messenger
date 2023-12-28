@@ -1,5 +1,7 @@
 #include "ChatService.h"
 
+#include <QJsonObject>
+#include <QJsonDocument>
 #include <QJsonArray>
 
 ChatService::ChatService(QObject *parent) :
@@ -50,7 +52,6 @@ void ChatService::sendGetUsersRequest()
     message["type"] = QStringLiteral("users");
 
     emit sendMessage(QJsonDocument(message).toJson());
-    //chatClient->sendMessage(QJsonDocument(message).toJson());
 }
 
 void ChatService::sendTextMessage(QString text, QString sender, QString receiver)
@@ -65,5 +66,4 @@ void ChatService::sendTextMessage(QString text, QString sender, QString receiver
     message["receiver"] = receiver;
 
     emit sendMessage(QJsonDocument(message).toJson());
-    //chatClient->sendMessage(QJsonDocument(message).toJson());
 }

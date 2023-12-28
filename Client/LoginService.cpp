@@ -44,7 +44,7 @@ void LoginService::createSession(ChatService *chatService)
     connect(this, &LoginService::logInUser, worker, &ChatClient::sendMessage);
     connect(worker, &ChatClient::loginMessage, this, &LoginService::processMessage);
     connect(this, &LoginService::logOutUser, worker, &ChatClient::disconnectFromServer);
-    connect(worker, &ChatClient::disconnected, this, &LoginService::onDisconnected);
+    connect(worker, &ChatClient::disconnected, this, &LoginService::disconnected);
     connect(worker, &ChatClient::error, this, &LoginService::error);
 
     connect(chatService, &ChatService::sendMessage, worker, &ChatClient::sendMessage);
@@ -98,10 +98,4 @@ void LoginService::logoutUser()
 QString LoginService::getUsername()
 {
     return username;
-}
-
-void LoginService::onDisconnected()
-{
-    if (!isLoggedIn)
-        emit disconnected();
 }

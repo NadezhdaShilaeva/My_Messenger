@@ -241,8 +241,11 @@ void MainWindow::changeUser(const QModelIndex& userIndex)
 
 void MainWindow::onDisconnectedFromServer()
 {
-    logout();
-    QMessageBox::warning(this, "Disconnected", "The host terminated the connection.");
+    if (ui->stackedWidget->currentIndex() != 0)
+    {
+        logout();
+        QMessageBox::warning(this, "Disconnected", "The host terminated the connection.");
+    }
 }
 
 void MainWindow::onError(QAbstractSocket::SocketError socketError)

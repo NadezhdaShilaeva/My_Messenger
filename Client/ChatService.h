@@ -3,8 +3,6 @@
 
 #include <QObject>
 
-#include "ChatClient.h"
-
 class ChatService : public QObject
 {
     Q_OBJECT
