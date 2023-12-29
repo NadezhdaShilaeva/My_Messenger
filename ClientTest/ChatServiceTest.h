@@ -4,7 +4,7 @@
 #include <QtTest>
 #include <QCoreApplication>
 
-#include "../Client/ChatService.h"
+#include "ChatService.h"
 
 class ChatServiceTest : public QObject
 {
@@ -18,12 +18,16 @@ private slots:
     void testProcessTextMessage_validData_emitSignalReceived();
     void testProcessTextMessage_invalidText_notEmitSignalReceived();
     void testProcessTextMessage_invalidSender_notEmitSignalReceived();
+
     void testProcessTextMessageFail_validData_emitSignalFailed();
     void testProcessTextMessageFail_invalidText_notEmitSignalFailed();
     void testProcessTextMessageFail_invalidReceiver_notEmitSignalFailed();
+
     void testProcessUsersListMessage_validData_emitSignalUsers();
     void testProcessUsersListMessage_invalidArray_notEmitSignalUsers();
+
     void testSendGetUsersRequest_emitSignalSend();
+
     void testSendTextMessage_validData_emitSignalSend();
     void testSendTextMessage_invalidText_notEmitSignalSend();
     void testSendTextMessage_invalidSender_notEmitSignalSend();

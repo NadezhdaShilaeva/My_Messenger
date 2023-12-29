@@ -225,4 +225,4 @@ void ChatServiceTest::testSendTextMessage_invalidReceiver_notEmitSignalSend()
     QCOMPARE(signalReceived.count(), 0);
 }
 
-QTEST_MAIN(ChatServiceTest)
+//QTEST_MAIN(ChatServiceTest)

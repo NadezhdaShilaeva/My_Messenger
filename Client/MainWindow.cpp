@@ -1,6 +1,7 @@
 #include "MainWindow.h"
 #include "ui_MainWindow.h"
 #include "LoginService.h"
+#include "Session.h"
 
 #include <QInputDialog>
 #include <QMessageBox>
@@ -12,6 +13,7 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
     , loginService(new LoginService(this))
     , chatService(new ChatService(this))
+    , session(new Session(loginService, chatService, this))
     , usersModel(new QStandardItemModel(this))
     , proxyModel(new QSortFilterProxyModel(this))
 {
@@ -51,7 +53,8 @@ void MainWindow::login()
     QString username = ui->usernameEdit->text();
 
     ui->loginButton->setEnabled(false);
-    loginService->loginUser(username, chatService);
+
+    loginService->loginUser(username, session);
 }
 
 void MainWindow::logout()

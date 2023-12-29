@@ -2,9 +2,9 @@
 #define LOGINSERVICE_H
 
 #include <QObject>
+#include <QAbstractSocket>
 
-#include "ChatClient.h"
-#include "ChatService.h"
+#include "ISession.h"
 
 class LoginService : public QObject
 {
@@ -30,12 +30,10 @@ public slots:
     void processMessage(const QJsonObject &json);
 
 public:
-    void loginUser(QString username, ChatService *chatService);
+    void loginUser(QString username, ISession *session);
     void logoutUser();
     QString getUsername();
-
-private:
-    void createSession(ChatService *chatService);
+    bool getIsLoggedIn();
 };
 
 #endif // LOGINSERVICE_H

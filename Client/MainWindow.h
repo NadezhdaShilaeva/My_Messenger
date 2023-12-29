@@ -9,6 +9,7 @@
 #include "ChatClient.h"
 #include "LoginService.h"
 #include "ChatService.h"
+#include "ISession.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -26,6 +27,7 @@ private:
     Ui::MainWindow *ui;
     LoginService *loginService;
     ChatService *chatService;
+    ISession * session;
     QStandardItemModel* usersModel;
     QSortFilterProxyModel *proxyModel;
     std::map<QString, QStandardItemModel*> chatModels;

@@ -12,14 +12,17 @@ SOURCES += \
     ChatService.cpp \
     LoginService.cpp \
     ChatClient.cpp \
+    Session.cpp \
     main.cpp \
     MainWindow.cpp
 
 HEADERS += \
     ChatService.h \
+    ISession.h \
     LoginService.h \
     ChatClient.h \
-    MainWindow.h
+    MainWindow.h \
+    Session.h
 
 FORMS += \
     MainWindow.ui

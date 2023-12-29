@@ -1,13 +1,15 @@
 #include "LoginService.h"
-#include "ChatClient.h"
+#include "ISession.h"
 
+#include <QJsonObject>
+#include <QJsonDocument>
 
 LoginService::LoginService(QObject *parent)
     : QObject(parent)
     , isLoggedIn(false)
 {}
 
-void LoginService::loginUser(QString username, ChatService *chatService)
+void LoginService::loginUser(QString username, ISession *session)
 {
     if (isLoggedIn or !this->username.isEmpty())
         return;
@@ -26,38 +28,14 @@ void LoginService::loginUser(QString username, ChatService *chatService)
 
     this->username = username;
 
-    createSession(chatService);
-}
-
-void LoginService::createSession(ChatService *chatService)
-{
-    ChatClient* worker = new ChatClient();
-    QThread* thread = new QThread();
-    worker->moveToThread(thread);
-
-    connect(thread, &QThread::started, worker, &ChatClient::connectToServer);
-    connect(worker, &ChatClient::disconnected, thread, &QThread::quit);
-    connect(worker, &ChatClient::disconnected, worker, &ChatClient::deleteLater);
-    connect(thread, &QThread::finished, thread, &QThread::deleteLater);
-
-    connect(worker, &ChatClient::connected, this, &LoginService::login);
-    connect(this, &LoginService::logInUser, worker, &ChatClient::sendMessage);
-    connect(worker, &ChatClient::loginMessage, this, &LoginService::processMessage);
-    connect(this, &LoginService::logOutUser, worker, &ChatClient::disconnectFromServer);
-    connect(worker, &ChatClient::disconnected, this, &LoginService::disconnected);
-    connect(worker, &ChatClient::error, this, &LoginService::error);
-
-    connect(chatService, &ChatService::sendMessage, worker, &ChatClient::sendMessage);
-    connect(worker, &ChatClient::textMessage, chatService, &ChatService::processTextMessage);
-    connect(worker, &ChatClient::textMessageFail, chatService, &ChatService::processTextMessageFail);
-    connect(worker, &ChatClient::usersListMessage, chatService, &ChatService::processUsersListMessage);
-
-
-    thread->start();
+    session->createSession();
 }
 
 void LoginService::login()
 {
+    if (username.isEmpty())
+        return;
+
     QJsonObject message;
     message["type"] = QStringLiteral("login");
     message["username"] = username;
@@ -68,6 +46,13 @@ void LoginService::login()
 void LoginService::processMessage(const QJsonObject &json)
 {
     if (isLoggedIn)
+        return;
+
+    const QJsonValue username = json.value("username");
+    if (username.isNull() || !username.isString())
+        return;
+
+    if (username.toString() != this->username)
         return;
 
     const QJsonValue result = json.value("success");
@@ -98,4 +83,9 @@ void LoginService::logoutUser()
 QString LoginService::getUsername()
 {
     return username;
+}
+
+bool LoginService::getIsLoggedIn()
+{
+    return isLoggedIn;
 }
