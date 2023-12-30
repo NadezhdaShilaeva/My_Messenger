@@ -15,18 +15,21 @@ std::string LoginService::loginClient(
     if (username.empty())
     {
         reply["type"] = "login";
+        reply["username"] = username;
         reply["success"] = false;
         reply["reason"] = "Username must contain at least one symbol.";
     }
     else if (std::find(usernames->begin(), usernames->end(), username) != usernames->end())
     {
         reply["type"] = "login";
+        reply["username"] = username;
         reply["success"] = false;
         reply["reason"] = "Username already exists.";
     }
     else
     {
         reply["type"] = "login";
+        reply["username"] = username;
         reply["success"] = true;
     }
 
