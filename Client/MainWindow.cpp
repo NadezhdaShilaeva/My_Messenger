@@ -5,8 +5,9 @@
 
 #include <QInputDialog>
 #include <QMessageBox>
-#include <QTime>
-#include <iostream>
+#include <string>
+
+const QString FAVOURITES = "Favourites";
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -26,15 +27,20 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->findUserEdit, SIGNAL(textChanged(QString)), proxyModel, SLOT(setFilterRegExp(QString)));
     ui->usersListView->setModel(proxyModel);
 
+    connect(loginService, &LoginService::connectedToServer, this, &MainWindow::login);
     connect(loginService, &LoginService::disconnected, this, &MainWindow::onDisconnectedFromServer);
     connect(loginService, &LoginService::error, this, &MainWindow::onError);
     connect(loginService, &LoginService::loggedIn, this, &MainWindow::onLoggedIn);
     connect(loginService, &LoginService::loginFailed, this, &MainWindow::onLoginFailed);
+    connect(chatService, &ChatService::chatMessagesReceived, this, &MainWindow::onChatMessagesReceived);
     connect(chatService, &ChatService::usersListReceived, this, &MainWindow::onUsersListReceived);
     connect(chatService, &ChatService::messageReceived, this, &MainWindow::onMessageReceived);
     connect(chatService, &ChatService::messageFailed, this, &MainWindow::onMessageFailed);
 
-    connect(ui->loginButton, &QPushButton::clicked, this, &MainWindow::login);
+    connect(ui->registerButton, &QPushButton::clicked, this, &MainWindow::onRegister);
+    connect(ui->registerLabelButton, &QPushButton::clicked, this, &MainWindow::changePageToRegister);
+    connect(ui->loginLabelButton, &QPushButton::clicked, this, &MainWindow::changePageToLogin);
+    connect(ui->loginButton, &QPushButton::clicked, this, &MainWindow::onLogin);
     connect(ui->logoutButton, &QPushButton::clicked, this, &MainWindow::logout);
     connect(ui->logoutButton2, &QPushButton::clicked, this, &MainWindow::logout);
     connect(ui->usersListView, &QListView::clicked, this, &MainWindow::changeUser);
@@ -48,13 +54,85 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
-void MainWindow::login()
+void MainWindow::changePageToRegister()
+{
+    ui->stackedWidget->setCurrentIndex(3);
+}
+
+void MainWindow::changePageToLogin()
+{
+    ui->stackedWidget->setCurrentIndex(0);
+}
+
+void MainWindow::onRegister()
+{
+    QString username = ui->usernameRegEdit->text();
+    QString password = ui->passwordRegEdit->text();
+
+    if (!loginService->checkCredentials(username, password))
+        return;
+
+    ui->usernameRegEdit->setEnabled(false);
+    ui->passwordRegEdit->setEnabled(false);
+    ui->registerButton->setEnabled(false);
+    ui->loginLabelButton->setEnabled(false);
+
+    session->createSession();
+}
+
+void MainWindow::onLogin()
 {
     QString username = ui->usernameEdit->text();
+    QString password = ui->passwordEdit->text();
 
+    if (!loginService->checkCredentials(username, password))
+        return;
+
+    ui->usernameEdit->setEnabled(false);
+    ui->passwordEdit->setEnabled(false);
     ui->loginButton->setEnabled(false);
+    ui->registerLabelButton->setEnabled(false);
 
-    loginService->loginUser(username, session);
+    session->createSession();
+}
+
+void MainWindow::login()
+{
+    if (ui->stackedWidget->currentIndex() == 3)
+    {
+        QString username = ui->usernameRegEdit->text();
+        QString password = ui->passwordRegEdit->text();
+
+        ui->registerButton->setEnabled(false);
+
+        loginService->loginUser(username, password, "register");
+    }
+
+    if (ui->stackedWidget->currentIndex() == 0)
+    {
+        QString username = ui->usernameEdit->text();
+        QString password = ui->passwordEdit->text();
+
+        ui->loginButton->setEnabled(false);
+
+        loginService->loginUser(username, password, "login");
+    }
+}
+
+void MainWindow::setInitialWidgets()
+{
+    ui->usernameEdit->setEnabled(true);
+    ui->passwordEdit->setEnabled(true);
+    ui->usernameRegEdit->setEnabled(true);
+    ui->passwordRegEdit->setEnabled(true);
+    ui->usernameEdit->clear();
+    ui->passwordEdit->clear();
+    ui->usernameRegEdit->clear();
+    ui->passwordRegEdit->clear();
+    ui->loginButton->setEnabled(true);
+    ui->registerButton->setEnabled(true);
+    ui->loginLabelButton->setEnabled(true);
+    ui->registerLabelButton->setEnabled(true);
 }
 
 void MainWindow::logout()
@@ -62,63 +140,67 @@ void MainWindow::logout()
     loginService->logoutUser();
 
     chatModels.clear();
-    ui->usernameEdit->clear();
-    ui->loginButton->setEnabled(true);
+    setInitialWidgets();
+
     this->setWindowTitle("My messenger");
-    ui->stackedWidget->setCurrentIndex(0);
+
+    if (ui->stackedWidget->currentIndex() != 0 and ui->stackedWidget->currentIndex() != 3)
+    {
+        ui->stackedWidget->setCurrentIndex(0);
+    }
 }
 
 void MainWindow::onLoggedIn()
 {
-    ui->usernameEdit->clear();
-    ui->loginButton->setEnabled(true);
+    setInitialWidgets();
+
     this->setWindowTitle("My messenger - " + loginService->getUsername());
     changePageToUsers();
 }
 
 void MainWindow::onLoginFailed(QString reason)
 {
-    ui->usernameEdit->clear();
-    ui->loginButton->setEnabled(true);
+    qDebug() << reason;
+    setInitialWidgets();
+
     QMessageBox::warning(this, "Failed authorization!", reason + " Please, try again.");
 }
 
-void MainWindow::onUsersListReceived(const QJsonArray& usersArray)
+void MainWindow::onUsersListReceived(const QVector<QString>& usersArray)
 {
     usersModel->clear();
     usersModel->insertColumn(0);
 
-    int newRow = 0;
-    usersModel->insertRow(newRow);
-    usersModel->setData(usersModel->index(newRow, 0), "Favourites");
-    usersModel->setData(usersModel->index(newRow, 0), int(Qt::AlignLeft | Qt::AlignVCenter), Qt::TextAlignmentRole);
+    QIcon favIcon = QIcon(":/icons/circle-bookmark.png");
+    QStandardItem* item = new QStandardItem(favIcon, FAVOURITES);
+    item->setTextAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+    usersModel->appendRow(item);
+
     QFont font;
     font.setBold(700);
-    usersModel->setData(usersModel->index(newRow, 0), font, Qt::FontRole);
-    newRow++;
+    item->setFont(font);
+
+    QIcon userIcon = QIcon(":/icons/circle-user.png");
 
     for (auto& user: chatModels)
     {
-        if (user.first == "Favourites")
+        if (user.first == loginService->getUsername())
             continue;
 
-        usersModel->insertRow(newRow);
-
-        usersModel->setData(usersModel->index(newRow, 0), user.first);
-        usersModel->setData(usersModel->index(newRow, 0), int(Qt::AlignLeft | Qt::AlignVCenter), Qt::TextAlignmentRole);
-        newRow++;
+        QStandardItem* item = new QStandardItem(userIcon, user.first);
+        item->setTextAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+        usersModel->appendRow(item);
     }
-    for (int i = 0; i < usersArray.size(); ++i)
+
+
+    for (auto& newUser : usersArray)
     {
-        QString newUser = usersArray.at(i).toString();
         if (chatModels.count(newUser) or newUser == loginService->getUsername())
             continue;
 
-        usersModel->insertRow(newRow);
-
-        usersModel->setData(usersModel->index(newRow, 0), newUser);
-        usersModel->setData(usersModel->index(newRow, 0), int(Qt::AlignLeft | Qt::AlignVCenter), Qt::TextAlignmentRole);
-        newRow++;
+        QStandardItem* item = new QStandardItem(userIcon, newUser);
+        item->setTextAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+        usersModel->appendRow(item);
     }
 }
 
@@ -126,11 +208,18 @@ void MainWindow::sendMessage()
 {
     QString receiver = ui->usernameLabel->text();
     QString text = ui->messageEdit->text();
+    QTime time = QTime::currentTime();
 
-    if (ui->usernameLabel->text() != "Favourites")
+    if (receiver == FAVOURITES)
     {
-        chatService->sendTextMessage(text, loginService->getUsername(), receiver);
+        receiver = loginService->getUsername();
     }
+
+    chatService->sendTextMessage(text, loginService->getUsername(), receiver, time);
+    ui->messageEdit->clear();
+
+    if (receiver == loginService->getUsername())
+        return;
 
     QStandardItemModel *currentModel;
     if (chatModels.count(receiver))
@@ -143,14 +232,13 @@ void MainWindow::sendMessage()
         currentModel->insertColumn(0);
     }
 
-    printMessage(currentModel, text, true);
+    printMessage(currentModel, text, time, true);
 
-    ui->messageEdit->clear();
     ui->chatView->setModel(currentModel);
     ui->chatView->scrollToBottom();
 }
 
-void MainWindow::onMessageReceived(QString sender, QString text)
+void MainWindow::onMessageReceived(QString sender, QString text, QTime time)
 {
     QStandardItemModel *currentModel;
     if (chatModels.count(sender))
@@ -163,9 +251,9 @@ void MainWindow::onMessageReceived(QString sender, QString text)
         currentModel->insertColumn(0);
     }
 
-    printMessage(currentModel, text, false);
+    printMessage(currentModel, text, time, sender == loginService->getUsername());
 
-    if (ui->usernameLabel->text() == sender)
+    if (ui->usernameLabel->text() == (sender == loginService->getUsername() ? FAVOURITES : sender))
     {
         ui->chatView->setModel(currentModel);
         ui->chatView->scrollToBottom();
@@ -187,7 +275,7 @@ void MainWindow::onMessageFailed(QString receiver, QString text, QString reason)
     }
 }
 
-void MainWindow::printMessage(QStandardItemModel* currentModel, QString text, bool self)
+void MainWindow::printMessage(QStandardItemModel* currentModel, QString text, QTime time, bool self)
 {
     int alignment;
     if (self)
@@ -210,9 +298,17 @@ void MainWindow::printMessage(QStandardItemModel* currentModel, QString text, bo
 
     newRow++;
     font.setPixelSize(12);
-    currentModel->setData(currentModel->index(newRow, 0), QTime::currentTime().toString("hh:mm"));
+    currentModel->setData(currentModel->index(newRow, 0), time.toString("hh:mm"));
     currentModel->setData(currentModel->index(newRow, 0), alignment, Qt::TextAlignmentRole);
     currentModel->setData(currentModel->index(newRow, 0), font, Qt::FontRole);
+}
+
+void MainWindow::keyPressEvent(QKeyEvent *event)
+{
+    if (ui->stackedWidget->currentIndex() == 1 and event->key() == Qt::Key_F5)
+    {
+        chatService->sendGetUsersRequest();
+    }
 }
 
 void MainWindow::changePageToUsers()
@@ -225,6 +321,12 @@ void MainWindow::changeUser(const QModelIndex& userIndex)
 {
     QString currentUser = usersModel->itemFromIndex(proxyModel->mapToSource(userIndex))->text();
     ui->usernameLabel->setText(currentUser);
+    ui->messageEdit->clear();
+
+    if (currentUser == FAVOURITES)
+    {
+        currentUser = loginService->getUsername();
+    }
 
     QStandardItemModel *currentModel;
     if (chatModels.count(currentUser))
@@ -242,9 +344,35 @@ void MainWindow::changeUser(const QModelIndex& userIndex)
     ui->stackedWidget->setCurrentIndex(2);
 }
 
+void MainWindow::onChatMessagesReceived(const QVector<Message>& messagesArray)
+{
+    for (auto& message : messagesArray)
+    {
+        QString receiver = message.getReceiver();
+        QString sender = message.getSender();
+        QString text = message.getText();
+        QTime time = message.getTime();
+
+        QString secondUser = sender == loginService->getUsername() ? receiver : sender;
+
+        QStandardItemModel *currentModel;
+        if (chatModels.count(secondUser))
+        {
+            currentModel = chatModels[secondUser];
+        }
+        else
+        {
+            currentModel = chatModels[secondUser] = new QStandardItemModel();
+            currentModel->insertColumn(0);
+        }
+
+        printMessage(currentModel, text, time, secondUser == receiver);
+    }
+}
+
 void MainWindow::onDisconnectedFromServer()
 {
-    if (ui->stackedWidget->currentIndex() != 0)
+    if (ui->stackedWidget->currentIndex() != 0 and ui->stackedWidget->currentIndex() != 3)
     {
         logout();
         QMessageBox::warning(this, "Disconnected", "The host terminated the connection.");

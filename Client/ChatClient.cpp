@@ -11,6 +11,8 @@ void ChatClient::connectToServer()
 {
     webSocket = new QWebSocket();
 
+    qRegisterMetaType<QAbstractSocket::SocketState>();
+
     connect(webSocket, &QWebSocket::connected, this, &ChatClient::connected);
     connect(webSocket, &QWebSocket::disconnected, this, &ChatClient::disconnected);
     connect(webSocket, &QWebSocket::textMessageReceived, this, &ChatClient::onTextMessageReceived);
@@ -42,9 +44,13 @@ void ChatClient::jsonReceived(const QJsonObject &json)
     if (type.isNull() || !type.isString())
         return;
 
-    if (type.toString().compare("login") == 0)
+    if (type.toString().compare("login") == 0 or type.toString().compare("register") == 0)
     {
         emit loginMessage(json);
+    }
+    else if (type.toString().compare("messages") == 0)
+    {
+        emit chatMessages(json);
     }
     else if (type.toString().compare("message") == 0)
     {

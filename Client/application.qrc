@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/">
+        <file>icons/circle-bookmark.png</file>
+        <file>icons/circle-user.png</file>
+    </qresource>
+</RCC>

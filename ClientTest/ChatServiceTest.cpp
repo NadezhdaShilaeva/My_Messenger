@@ -10,10 +10,20 @@ ChatServiceTest::ChatServiceTest()
     , signalReceived(chatService, &ChatService::messageReceived)
     , signalFailed(chatService, &ChatService::messageFailed)
     , signalUsers(chatService, &ChatService::usersListReceived)
+    , signalMessages(chatService, &ChatService::chatMessagesReceived)
 {}
 
 ChatServiceTest::~ChatServiceTest()
 {}
+
+void ChatServiceTest::cleanup()
+{
+    signalSend.clear();
+    signalReceived.clear();
+    signalFailed.clear();
+    signalUsers.clear();
+    signalMessages.clear();
+}
 
 void ChatServiceTest::testProcessTextMessage_validData_emitSignalReceived()
 {
@@ -29,6 +39,7 @@ void ChatServiceTest::testProcessTextMessage_validData_emitSignalReceived()
     QCOMPARE(signalSend.count(), 0);
     QCOMPARE(signalFailed.count(), 0);
     QCOMPARE(signalUsers.count(), 0);
+    QCOMPARE(signalMessages.count(), 0);
 
     QList<QVariant> args = signalReceived.takeFirst();
     QCOMPARE(args.at(0).toString(), testSender);
@@ -49,6 +60,7 @@ void ChatServiceTest::testProcessTextMessage_invalidText_notEmitSignalReceived()
     QCOMPARE(signalSend.count(), 0);
     QCOMPARE(signalFailed.count(), 0);
     QCOMPARE(signalUsers.count(), 0);
+    QCOMPARE(signalMessages.count(), 0);
 }
 
 void ChatServiceTest::testProcessTextMessage_invalidSender_notEmitSignalReceived()
@@ -65,6 +77,7 @@ void ChatServiceTest::testProcessTextMessage_invalidSender_notEmitSignalReceived
     QCOMPARE(signalSend.count(), 0);
     QCOMPARE(signalFailed.count(), 0);
     QCOMPARE(signalUsers.count(), 0);
+    QCOMPARE(signalMessages.count(), 0);
 }
 
 void ChatServiceTest::testProcessTextMessageFail_validData_emitSignalFailed()
@@ -82,6 +95,7 @@ void ChatServiceTest::testProcessTextMessageFail_validData_emitSignalFailed()
     QCOMPARE(signalReceived.count(), 0);
     QCOMPARE(signalSend.count(), 0);
     QCOMPARE(signalUsers.count(), 0);
+    QCOMPARE(signalMessages.count(), 0);
 
     QList<QVariant> args = signalFailed.takeFirst();
     QCOMPARE(args.at(0).toString(), testReceiver);
@@ -104,6 +118,7 @@ void ChatServiceTest::testProcessTextMessageFail_invalidText_notEmitSignalFailed
     QCOMPARE(signalReceived.count(), 0);
     QCOMPARE(signalSend.count(), 0);
     QCOMPARE(signalUsers.count(), 0);
+    QCOMPARE(signalMessages.count(), 0);
 }
 
 void ChatServiceTest::testProcessTextMessageFail_invalidReceiver_notEmitSignalFailed()
@@ -121,6 +136,7 @@ void ChatServiceTest::testProcessTextMessageFail_invalidReceiver_notEmitSignalFa
     QCOMPARE(signalReceived.count(), 0);
     QCOMPARE(signalSend.count(), 0);
     QCOMPARE(signalUsers.count(), 0);
+    QCOMPARE(signalMessages.count(), 0);
 }
 
 void ChatServiceTest::testProcessUsersListMessage_validData_emitSignalUsers()
@@ -135,12 +151,13 @@ void ChatServiceTest::testProcessUsersListMessage_validData_emitSignalUsers()
     QCOMPARE(signalFailed.count(), 0);
     QCOMPARE(signalReceived.count(), 0);
     QCOMPARE(signalSend.count(), 0);
+    QCOMPARE(signalMessages.count(), 0);
 
-    QJsonArray args = signalUsers.takeFirst().at(0).toJsonArray();
+    QVector<QString> args = signalUsers.takeFirst().at(0).value<QVector<QString>>();
 
-    QCOMPARE(args.at(0).toString(), "user1");
-    QCOMPARE(args.at(1).toString(), "user2");
-    QCOMPARE(args.at(2).toString(), "user3");
+    QCOMPARE(args[0], "user1");
+    QCOMPARE(args[1], "user2");
+    QCOMPARE(args[2], "user3");
 }
 
 void ChatServiceTest::testProcessUsersListMessage_invalidArray_notEmitSignalUsers()
@@ -155,6 +172,42 @@ void ChatServiceTest::testProcessUsersListMessage_invalidArray_notEmitSignalUser
     QCOMPARE(signalFailed.count(), 0);
     QCOMPARE(signalReceived.count(), 0);
     QCOMPARE(signalSend.count(), 0);
+    QCOMPARE(signalMessages.count(), 0);
+}
+
+void ChatServiceTest::testProcessChatMessages_validData_emitSignalMessages()
+{
+    QJsonObject message;
+    message["type"] = typeUsers;
+    QJsonObject message1;
+    message1["receiver"] = testReceiver;
+    message1["sender"] = testSender;
+    message1["text"] = testText;
+    message1["time"] = testTime.toString();
+    message["list"] = QJsonArray({message1});
+
+    chatService->processChatMessages(message);
+
+    QCOMPARE(signalMessages.count(), 1);
+    QCOMPARE(signalUsers.count(), 0);
+    QCOMPARE(signalFailed.count(), 0);
+    QCOMPARE(signalReceived.count(), 0);
+    QCOMPARE(signalSend.count(), 0);
+}
+
+void ChatServiceTest::testProcessChatMessages_invalidArray_notEmitSignalMessages()
+{
+    QJsonObject message;
+    message["type"] = typeMessages;
+    message["list"] = "message1";
+
+    chatService->processChatMessages(message);
+
+    QCOMPARE(signalMessages.count(), 0);
+    QCOMPARE(signalUsers.count(), 0);
+    QCOMPARE(signalFailed.count(), 0);
+    QCOMPARE(signalReceived.count(), 0);
+    QCOMPARE(signalSend.count(), 0);
 }
 
 void ChatServiceTest::testSendGetUsersRequest_emitSignalSend()
@@ -165,6 +218,7 @@ void ChatServiceTest::testSendGetUsersRequest_emitSignalSend()
     QCOMPARE(signalUsers.count(), 0);
     QCOMPARE(signalFailed.count(), 0);
     QCOMPARE(signalReceived.count(), 0);
+    QCOMPARE(signalMessages.count(), 0);
 
     QString message = signalSend.takeFirst().at(0).toString();
     QJsonObject json = QJsonDocument::fromJson(message.toLocal8Bit()).object();
@@ -175,54 +229,60 @@ void ChatServiceTest::testSendGetUsersRequest_emitSignalSend()
 
 void ChatServiceTest::testSendTextMessage_validData_emitSignalSend()
 {
-    chatService->sendTextMessage(testText, testSender, testReceiver);
+    chatService->sendTextMessage(testText, testSender, testReceiver, testTime);
 
     QCOMPARE(signalSend.count(), 1);
     QCOMPARE(signalUsers.count(), 0);
     QCOMPARE(signalFailed.count(), 0);
     QCOMPARE(signalReceived.count(), 0);
+    QCOMPARE(signalMessages.count(), 0);
 
     QString message = signalSend.takeFirst().at(0).toString();
     QJsonObject json = QJsonDocument::fromJson(message.toLocal8Bit()).object();
-    QJsonValue type = json.value("type");
-    QJsonValue text = json.value("text");
-    QJsonValue sender = json.value("sender");
-    QJsonValue receiver = json.value("receiver");
+    QString type = json.value("type").toString();
+    QString text = json.value("text").toString();
+    QString sender = json.value("sender").toString();
+    QString receiver = json.value("receiver").toString();
+    QTime time = QTime::fromString(json.value("time").toString());
 
     QCOMPARE(type, typeMessage);
     QCOMPARE(text, testText);
     QCOMPARE(sender, testSender);
     QCOMPARE(receiver, testReceiver);
+    QCOMPARE(time, testTime);
 }
 
 void ChatServiceTest::testSendTextMessage_invalidText_notEmitSignalSend()
 {
-    chatService->sendTextMessage("", testSender, testReceiver);
+    chatService->sendTextMessage(emptyString, testSender, testReceiver, testTime);
 
     QCOMPARE(signalSend.count(), 0);
     QCOMPARE(signalUsers.count(), 0);
     QCOMPARE(signalFailed.count(), 0);
     QCOMPARE(signalReceived.count(), 0);
+    QCOMPARE(signalMessages.count(), 0);
 }
 
 void ChatServiceTest::testSendTextMessage_invalidSender_notEmitSignalSend()
 {
-    chatService->sendTextMessage(testText, "", testReceiver);
+    chatService->sendTextMessage(testText, emptyString, testReceiver, testTime);
 
     QCOMPARE(signalSend.count(), 0);
     QCOMPARE(signalUsers.count(), 0);
     QCOMPARE(signalFailed.count(), 0);
     QCOMPARE(signalReceived.count(), 0);
+    QCOMPARE(signalMessages.count(), 0);
 }
 
 void ChatServiceTest::testSendTextMessage_invalidReceiver_notEmitSignalSend()
 {
-    chatService->sendTextMessage(testText, testSender, "");
+    chatService->sendTextMessage(testText, testSender, emptyString, testTime);
 
     QCOMPARE(signalSend.count(), 0);
     QCOMPARE(signalUsers.count(), 0);
     QCOMPARE(signalFailed.count(), 0);
     QCOMPARE(signalReceived.count(), 0);
+    QCOMPARE(signalMessages.count(), 0);
 }
 
 //QTEST_MAIN(ChatServiceTest)

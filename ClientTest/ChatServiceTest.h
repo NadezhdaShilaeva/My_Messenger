@@ -15,6 +15,8 @@ public:
     ~ChatServiceTest();
 
 private slots:
+    void cleanup();
+
     void testProcessTextMessage_validData_emitSignalReceived();
     void testProcessTextMessage_invalidText_notEmitSignalReceived();
     void testProcessTextMessage_invalidSender_notEmitSignalReceived();
@@ -25,6 +27,9 @@ private slots:
 
     void testProcessUsersListMessage_validData_emitSignalUsers();
     void testProcessUsersListMessage_invalidArray_notEmitSignalUsers();
+
+    void testProcessChatMessages_validData_emitSignalMessages();
+    void testProcessChatMessages_invalidArray_notEmitSignalMessages();
 
     void testSendGetUsersRequest_emitSignalSend();
 
@@ -40,14 +45,19 @@ private:
     QSignalSpy signalReceived;
     QSignalSpy signalFailed;
     QSignalSpy signalUsers;
+    QSignalSpy signalMessages;
 
     const QString typeMessage = "message";
     const QString typeMessageFail = "messageFail";
     const QString typeUsers = "users";
+    const QString typeMessages = "messages";
 
     const QString testText = "Hello";
     const QString testSender = "user1";
     const QString testReceiver = "user2";
+    const QTime testTime = QTime::fromString("12:43:45");
+
+    const QString emptyString = "";
 };
 
 #endif // CHATSERVICETEST_H

@@ -4,6 +4,8 @@
 #include <QMainWindow>
 #include <QStandardItemModel>
 #include <QSortFilterProxyModel>
+#include <QKeyEvent>
+#include <QTime>
 #include <map>
 
 #include "ChatClient.h"
@@ -33,23 +35,31 @@ private:
     std::map<QString, QStandardItemModel*> chatModels;
 
 private slots:
+    void onRegister();
+    void onLogin();
+
     void login();
     void logout();
     void onLoggedIn();
     void onLoginFailed(QString reason);
 
-    void onUsersListReceived(const QJsonArray& usersArray);
-    void onMessageReceived(QString sender, QString text);
+    void onChatMessagesReceived(const QVector<Message>& messagesArray);
+    void onUsersListReceived(const QVector<QString>& usersArray);
+    void onMessageReceived(QString sender, QString text, QTime time);
     void onMessageFailed(QString receiver, QString text, QString reason);
     void changeUser(const QModelIndex &userIndex);
     void sendMessage();
 
+    void changePageToRegister();
+    void changePageToLogin();
     void changePageToUsers();
 
     void onDisconnectedFromServer();
     void onError(QAbstractSocket::SocketError socketError);
 
 private:
-    void printMessage(QStandardItemModel* currentModel, QString text, bool self);
+    void keyPressEvent(QKeyEvent *event) override;
+    void setInitialWidgets();
+    void printMessage(QStandardItemModel* currentModel, QString text, QTime time, bool self);
 };
 #endif // MAINWINDOW_H

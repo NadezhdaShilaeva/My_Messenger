@@ -89,6 +89,18 @@ void WebSocketSession::sendMessage(const boost::shared_ptr<std::string>& message
         });
 }
 
+void WebSocketSession::dispatchMessage(const boost::shared_ptr<std::string>& message)
+{
+    auto self = shared_from_this();
+    asio::dispatch(webSocket.get_executor(),
+        [self, message]()
+        {
+            self->msgQueue.push_back(message);
+
+            self->writeMessage();
+        });
+}
+
 void WebSocketSession::writeMessage()
 {
     auto self = shared_from_this();
@@ -156,6 +168,16 @@ void WebSocketSession::pingClient()
 
                     pingClient();
                 });
+        });
+}
+
+void WebSocketSession::closeConnection()
+{
+    auto self = shared_from_this();
+    asio::post(webSocket.get_executor(),
+        [self]()
+        {
+            self->closeWebSocket();
         });
 }
 

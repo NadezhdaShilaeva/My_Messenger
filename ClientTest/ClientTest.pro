@@ -9,17 +9,16 @@ TEMPLATE = app
 INCLUDEPATH += ../Client
 
 SOURCES +=  \
+    ../Client/Message.cpp \
     ../Client/ChatService.cpp \
     ChatServiceTest.cpp \
     ../Client/LoginService.cpp \
     LoginServiceTest.cpp \
-    SessionMock.cpp \
     main.cpp
 
 HEADERS += \
+    ../Client/Message.h \
     ../Client/ChatService.h \
     ChatServiceTest.h \
     ../Client/LoginService.h \
-    LoginServiceTest.h \
-    ../Client/ISession.h \
-    SessionMock.h
+    LoginServiceTest.h

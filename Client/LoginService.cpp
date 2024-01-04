@@ -9,36 +9,46 @@ LoginService::LoginService(QObject *parent)
     , isLoggedIn(false)
 {}
 
-void LoginService::loginUser(QString username, ISession *session)
+bool LoginService::checkCredentials(QString username, QString password)
 {
-    if (isLoggedIn or !this->username.isEmpty())
-        return;
-
     if (username.isEmpty())
     {
         emit loginFailed("Username cannot be empty.");
-        return;
+        return false;
     }
 
     if (username == "Favourites")
     {
         emit loginFailed("Username cannot be Favourites because it is a reserved word.");
+        return false;
+    }
+
+    if (password.isEmpty())
+    {
+        emit loginFailed("Password cannot be empty.");
+        return false;
+    }
+
+    return true;
+}
+
+void LoginService::loginUser(QString username, QString password, QString type)
+{
+    if (isLoggedIn or !this->username.isEmpty())
+        return;
+
+    if (!checkCredentials(username, password))
+    {
+        logoutUser();
         return;
     }
 
     this->username = username;
 
-    session->createSession();
-}
-
-void LoginService::login()
-{
-    if (username.isEmpty())
-        return;
-
     QJsonObject message;
-    message["type"] = QStringLiteral("login");
+    message["type"] = type;
     message["username"] = username;
+    message["password"] = password;
 
     emit logInUser(QJsonDocument(message).toJson());
 }
