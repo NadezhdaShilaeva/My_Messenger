@@ -26,6 +26,7 @@ private slots:
 signals:
     void connected();
     void loginMessage(const QJsonObject &json);
+    void chatMessages(const QJsonObject &json);
     void textMessage(const QJsonObject &json);
     void textMessageFail(const QJsonObject &json);
     void usersListMessage(const QJsonObject &json);

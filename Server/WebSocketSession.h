@@ -26,6 +26,7 @@ private:
     void acceptWebSocketHandshake();
     void readMessage();
     void writeMessage();
+    void closeWebSocket();
     void pongControl();
     void pingClient();
     void printError(beast::error_code ec, const char* what);
@@ -38,5 +39,6 @@ public:
     void run();
     void setUsername(const std::string& username);
     void sendMessage(const boost::shared_ptr<std::string>& message);
-    void closeWebSocket();
+    void dispatchMessage(const boost::shared_ptr<std::string>& message);
+    void closeConnection();
 };

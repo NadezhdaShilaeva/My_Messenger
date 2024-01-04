@@ -11,30 +11,24 @@ InteractionHandler::InteractionHandler(const std::shared_ptr<LoginService>& logi
     : loginService(loginService), chatService(chatService)
 {}
 
-std::shared_ptr<std::vector<std::string>> InteractionHandler::getUsernames()
-{
-    std::vector<std::string> usernames;
-    for (auto& user : sessions)
-    {
-        usernames.push_back(user.first);
-    }
-
-    return std::make_shared<std::vector<std::string>>(std::move(usernames));
-}
-
 void InteractionHandler::processMessage(const std::string& message, const boost::weak_ptr<WebSocketSession>& sender)
 {
     json messageJson = json::parse(message);
     std::string type = messageJson["type"];
 
-    if (type == "login")
+    if (type == "register")
     {
-        auto reply = loginService->loginClient(getUsernames(), messageJson["username"]);
+        auto reply = loginService->registerUser(messageJson["username"], messageJson["password"]);
+        loginClient(sender, messageJson["username"], reply);
+    }
+    else if (type == "login")
+    {
+        auto reply = loginService->loginUser(messageJson["username"], messageJson["password"]);
         loginClient(sender, messageJson["username"], reply);
     }
     else if (type == "message")
     {
-        sendMessage(messageJson["receiver"], message, messageJson["sender"]);
+        sendMessage(messageJson["receiver"], messageJson["sender"], messageJson["text"], messageJson["time"], message);
     }
     else if (type == "users")
     {
@@ -50,8 +44,8 @@ void InteractionHandler::loginClient(const boost::weak_ptr<WebSocketSession>& se
     {
         if (auto sessionSPtr = session.lock())
         {
-            sessionSPtr->sendMessage(replyPtr);
-            sessionSPtr->closeWebSocket();
+            sessionSPtr->dispatchMessage(replyPtr);
+            sessionSPtr->closeConnection();
         }
     }
     else
@@ -62,11 +56,26 @@ void InteractionHandler::loginClient(const boost::weak_ptr<WebSocketSession>& se
             sessionSPtr->setUsername(username);
             sessionSPtr->sendMessage(replyPtr);
         }
+
+        sendMessagesList(username);
     }
 }
 
-void InteractionHandler::sendMessage(const std::string& receiver, const std::string& message, const std::string& sender)
+void InteractionHandler::sendMessagesList(const std::string& username)
 {
+    auto message = chatService->createChatMessagesList(username);
+    auto messagePtr = boost::make_shared<std::string>(std::move(message));
+    if (auto sessionSPtr = sessions[username].lock())
+    {
+        sessionSPtr->sendMessage(messagePtr);
+    }
+}
+
+void InteractionHandler::sendMessage(const std::string& receiver, const std::string& sender, const std::string& text, 
+    const std::string& time, const std::string& message)
+{
+    chatService->saveMessage(receiver, sender, text, time);
+
     auto messagePtr = boost::make_shared<std::string>(std::move(message));
     if (auto sessionSPtr = sessions[receiver].lock())
     {
@@ -74,18 +83,21 @@ void InteractionHandler::sendMessage(const std::string& receiver, const std::str
     }
     else
     {
-        auto reply = chatService->createFailMessage(message);
-        if (auto sessionSPtr = sessions[sender].lock())
+        if (!sessions.count(receiver))
         {
-            auto replyPtr = boost::make_shared<std::string>(std::move(reply));
-            sessionSPtr->sendMessage(replyPtr);
+            auto reply = chatService->createFailMessage(message);
+            if (auto sessionSPtr = sessions[sender].lock())
+            {
+                auto replyPtr = boost::make_shared<std::string>(std::move(reply));
+                sessionSPtr->sendMessage(replyPtr);
+            }
         }
     }
 }
 
 void InteractionHandler::sendUsersList(const boost::weak_ptr<WebSocketSession>& session)
 {
-    auto usersList = chatService->createUsersList(getUsernames());
+    auto usersList = chatService->createUsersList();
 
     auto messagePtr = boost::make_shared<std::string>(std::move(usersList));
     if (auto sessionSPtr = session.lock())

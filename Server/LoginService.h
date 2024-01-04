@@ -4,14 +4,16 @@
 #include <memory>
 #include <vector>
 
+#include "IUserRepository.h"
+
 class LoginService
 {
 private:
+    std::shared_ptr<IUserRepository> userRepository;
 
 public:
-    explicit LoginService();
+    explicit LoginService(const std::shared_ptr<IUserRepository>& userRepository);
 
-    std::string loginClient(
-        const std::shared_ptr<std::vector<std::string>>& usernames,
-        const std::string& username);
+    std::string registerUser(const std::string& username, const std::string& password);
+    std::string loginUser(const std::string& username, const std::string& password); // return message with success or not success
 };

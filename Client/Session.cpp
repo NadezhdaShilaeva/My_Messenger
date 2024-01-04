@@ -18,7 +18,7 @@ void Session::createSession()
     connect(worker, &ChatClient::disconnected, worker, &ChatClient::deleteLater);
     connect(thread, &QThread::finished, thread, &QThread::deleteLater);
 
-    connect(worker, &ChatClient::connected, loginService, &LoginService::login);
+    connect(worker, &ChatClient::connected, loginService, &LoginService::connectedToServer);
     connect(loginService, &LoginService::logInUser, worker, &ChatClient::sendMessage);
     connect(worker, &ChatClient::loginMessage, loginService, &LoginService::processMessage);
     connect(loginService, &LoginService::logOutUser, worker, &ChatClient::disconnectFromServer);
@@ -28,6 +28,7 @@ void Session::createSession()
     connect(chatService, &ChatService::sendMessage, worker, &ChatClient::sendMessage);
     connect(worker, &ChatClient::textMessage, chatService, &ChatService::processTextMessage);
     connect(worker, &ChatClient::textMessageFail, chatService, &ChatService::processTextMessageFail);
+    connect(worker, &ChatClient::chatMessages, chatService, &ChatService::processChatMessages);
     connect(worker, &ChatClient::usersListMessage, chatService, &ChatService::processUsersListMessage);
 
     thread->start();

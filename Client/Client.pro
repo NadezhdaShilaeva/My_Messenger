@@ -12,6 +12,7 @@ SOURCES += \
     ChatService.cpp \
     LoginService.cpp \
     ChatClient.cpp \
+    Message.cpp \
     Session.cpp \
     main.cpp \
     MainWindow.cpp
@@ -22,6 +23,7 @@ HEADERS += \
     LoginService.h \
     ChatClient.h \
     MainWindow.h \
+    Message.h \
     Session.h
 
 FORMS += \
@@ -31,3 +33,6 @@ FORMS += \
 qnx: target.path = /tmp/$${TARGET}/bin
 else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
+
+RESOURCES += \
+    application.qrc

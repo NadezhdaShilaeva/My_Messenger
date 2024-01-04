@@ -18,6 +18,7 @@ private:
     bool isLoggedIn;
 
 signals:
+    void connectedToServer();
     void logInUser(QString username);
     void logOutUser();
     void loggedIn();
@@ -26,11 +27,11 @@ signals:
     void error(QAbstractSocket::SocketError socketError);
 
 public slots:
-    void login();
     void processMessage(const QJsonObject &json);
 
 public:
-    void loginUser(QString username, ISession *session);
+    bool checkCredentials(QString username, QString password);
+    void loginUser(QString username, QString password, QString type);
     void logoutUser();
     QString getUsername();
     bool getIsLoggedIn();
