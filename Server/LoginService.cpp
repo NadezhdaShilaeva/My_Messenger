@@ -4,8 +4,8 @@
 
 using json = nlohmann::json;
 
-LoginService::LoginService(const std::shared_ptr<IUserRepository>& userRepository)
-    : userRepository(userRepository)
+LoginService::LoginService(const std::shared_ptr<IUserRepository>& userRepository, const std::shared_ptr<IEncoder>& encoder)
+    : userRepository(userRepository), encoder(encoder)
 {}
 
 std::string LoginService::registerUser(const std::string& username, const std::string& password)
@@ -34,7 +34,10 @@ std::string LoginService::registerUser(const std::string& username, const std::s
     }
     else
     {
-        userRepository->save(User(username, password));
+        std::string salt = encoder->generateSalt();
+        std::string hashedPassword = encoder->sha1(password, salt);
+
+        userRepository->save(User(username, hashedPassword, salt));
 
         reply["type"] = "register";
         reply["username"] = username;
@@ -45,14 +48,28 @@ std::string LoginService::registerUser(const std::string& username, const std::s
 }
 
 std::string LoginService::loginUser(const std::string& username, const std::string& password)
-{    
+{
+    std::optional<User> user = userRepository->findByUsername(username);
+
     json reply;
-    if (userRepository->findByUsernameAndPassword(username, password))
+    if (user)
     {
-        reply["type"] = "login";
-        reply["username"] = username;
-        reply["success"] = true;
-    }
+        std::string currentHashedPassword = encoder->sha1(password, user->getSalt());
+
+        if (currentHashedPassword == user->getPassword())
+        {
+            reply["type"] = "login";
+            reply["username"] = username;
+            reply["success"] = true;
+        }
+        else
+        {
+            reply["type"] = "login";
+            reply["username"] = username;
+            reply["success"] = false;
+            reply["reason"] = "Wrong username or password.";
+        }
+    } 
     else
     {
         reply["type"] = "login";

@@ -4,6 +4,7 @@
 #include "../Server/User.cpp"
 #include "../Server/InMemoryUserRepository.cpp"
 #include "../Server/LoginService.cpp"
+#include "MockEncoder.h"
 
 #include <nlohmann/json.hpp>
 
@@ -12,7 +13,8 @@ using json = nlohmann::json;
 TEST(TestLoginService, UsernameEmpty_RegisterFail)
 {
 	auto userRepository = std::make_shared<InMemoryUserRepository>();
-	auto loginService = new LoginService(userRepository);
+	auto encoder = std::make_shared<MockEncoder>();
+	auto loginService = new LoginService(userRepository, encoder);
 
 	std::string username = "";
 	std::string password = "123456";
@@ -28,7 +30,8 @@ TEST(TestLoginService, UsernameEmpty_RegisterFail)
 TEST(TestLoginService, PasswordEmpty_RegisterFail)
 {
 	auto userRepository = std::make_shared<InMemoryUserRepository>();
-	auto loginService = new LoginService(userRepository);
+	auto encoder = std::make_shared<MockEncoder>();
+	auto loginService = new LoginService(userRepository, encoder);
 
 	std::string username = "User1";
 	std::string password = "";
@@ -44,8 +47,9 @@ TEST(TestLoginService, PasswordEmpty_RegisterFail)
 TEST(TestLoginService, UsernameExists_RegisterFail)
 {
 	auto userRepository = std::make_shared<InMemoryUserRepository>();
-	auto loginService = new LoginService(userRepository);
-	userRepository->save(User("user1", "123456"));
+	auto encoder = std::make_shared<MockEncoder>();
+	auto loginService = new LoginService(userRepository, encoder);
+	userRepository->save(User("user1", "123456", encoder->generateSalt()));
 
 	std::string username = "user1";
 	std::string password = "1234567";
@@ -61,8 +65,11 @@ TEST(TestLoginService, UsernameExists_RegisterFail)
 TEST(TestLoginService, UserValid_RegisterSuccess)
 {
 	auto userRepository = std::make_shared<InMemoryUserRepository>();
-	auto loginService = new LoginService(userRepository);
-	User user1 = User("user1", "123456");
+	auto encoder = std::make_shared<MockEncoder>();
+	auto loginService = new LoginService(userRepository, encoder);
+	std::string salt = encoder->generateSalt();
+	std::string hashPassword = encoder->sha1("123456", salt);
+	User user1 = User("user1", hashPassword, salt);
 	userRepository->save(user1);
 
 	std::string username = "user2";
@@ -78,13 +85,14 @@ TEST(TestLoginService, UserValid_RegisterSuccess)
 	auto& users = userRepository->findAll();
 	EXPECT_EQ(2, users.size());
 	EXPECT_EQ(user1, users.front());
-	EXPECT_EQ(User(username, password), users.back());
+	EXPECT_EQ(User(username, encoder->sha1(password, salt), salt), users.back());
 }
 
 TEST(TestLoginService, UsernameNotExists_LoginFail)
 {
 	auto userRepository = std::make_shared<InMemoryUserRepository>();
-	auto loginService = new LoginService(userRepository);
+	auto encoder = std::make_shared<MockEncoder>();
+	auto loginService = new LoginService(userRepository, encoder);
 
 	std::string username = "user1";
 	std::string password = "123456";
@@ -100,8 +108,9 @@ TEST(TestLoginService, UsernameNotExists_LoginFail)
 TEST(TestLoginService, WrongPassword_LoginFail)
 {
 	auto userRepository = std::make_shared<InMemoryUserRepository>();
-	auto loginService = new LoginService(userRepository);
-	User user1 = User("user1", "123456");
+	auto encoder = std::make_shared<MockEncoder>();
+	auto loginService = new LoginService(userRepository, encoder);
+	User user1 = User("user1", "123456", encoder->generateSalt());
 	userRepository->save(user1);
 
 	std::string username = "user1";
@@ -118,8 +127,11 @@ TEST(TestLoginService, WrongPassword_LoginFail)
 TEST(TestLoginService, UserExists_LoginSuccess)
 {
 	auto userRepository = std::make_shared<InMemoryUserRepository>();
-	auto loginService = new LoginService(userRepository);
-	User user1 = User("user1", "123456");
+	auto encoder = std::make_shared<MockEncoder>();
+	auto loginService = new LoginService(userRepository, encoder);
+	std::string salt = encoder->generateSalt();
+	std::string hashPassword = encoder->sha1("123456", salt);
+	User user1 = User("user1", hashPassword, salt);
 	userRepository->save(user1);
 
 	std::string username = "user1";

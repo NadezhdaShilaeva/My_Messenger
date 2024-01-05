@@ -20,8 +20,8 @@ TEST(TestChatService, SaveMessage_MessageSaved)
 	std::string receiver = "user2";
 	std::string text = "hello";
 	std::string time = "12:48:45";
-	User user1 = User(sender, "123");
-	User user2 = User(receiver, "456");
+	User user1 = User(sender, "123", "salt");
+	User user2 = User(receiver, "456", "salt");
 	userRepository->save(user1);
 	userRepository->save(user2);
 	chatService->saveMessage(receiver, sender, text, time);
@@ -40,9 +40,9 @@ TEST(TestChatService, CreateChatMessagesList_MessagesListCreated)
 	auto messageRepository = std::make_shared<InMemoryMessageRepository>();
 	auto chatService = new ChatService(userRepository, messageRepository);
 
-	User user1 = User("user1", "123");
+	User user1 = User("user1", "123", "salt");
 	userRepository->save(user1);
-	User user2 = User("user2", "456");
+	User user2 = User("user2", "456", "salt");
 	userRepository->save(user2);
 	Message message1 = Message(user1, user2, "hello", "12:48:45");
 	messageRepository->save(message1);
@@ -88,9 +88,9 @@ TEST(TestChatService, CreateUsersList_UsersListCreated)
 	auto userRepository = std::make_shared<InMemoryUserRepository>();
 	auto messageRepository = std::make_shared<InMemoryMessageRepository>();
 	auto chatService = new ChatService(userRepository, messageRepository);
-	userRepository->save(User("user1", "123456"));
-	userRepository->save(User("user2", "123457"));
-	userRepository->save(User("user3", "123458"));
+	userRepository->save(User("user1", "123456", "salt"));
+	userRepository->save(User("user2", "123457", "salt"));
+	userRepository->save(User("user3", "123458", "salt"));
 
 	std::string reply = chatService->createUsersList();
 	json replyJson = json::parse(reply);

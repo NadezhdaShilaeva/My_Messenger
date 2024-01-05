@@ -4,6 +4,7 @@
 #include "ChatService.h"
 #include "InMemoryUserRepository.h"
 #include "InMemoryMessageRepository.h"
+#include "HashEncoder.h"
 
 #include <iostream>
 
@@ -15,7 +16,9 @@ int main(int argc, char* argv[])
     auto userRepository = std::make_shared<InMemoryUserRepository>();
     auto messageRepository = std::make_shared<InMemoryMessageRepository>();
 
-    auto loginService = std::make_shared<LoginService>(userRepository);
+    auto encoder = std::make_shared<HashEncoder>();
+
+    auto loginService = std::make_shared<LoginService>(userRepository, encoder);
     auto chatService = std::make_shared<ChatService>(userRepository, messageRepository);
 
     asio::io_context context;
